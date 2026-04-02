@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Vue 3 + Vite + TypeScript project implementing a high-performance virtual scrolling image list using Konva.js canvas rendering. The main component renders thousands of images efficiently by only painting visible items to an HTML5 canvas.
+A Vue 3 + Vite + TypeScript project implementing a high-performance virtual scrolling image grid list using Konva.js canvas rendering. The `VirtualGridImageList` component renders thousands of images efficiently by only painting visible items to an HTML5 canvas.
 
 ## Package Manager
 
@@ -32,7 +32,7 @@ pnpm format           # Run prettier formatting
 ## Architecture
 
 ### Tech Stack
-- **Vue 3.5** with Composition API (`<script setup>`)
+- **Vue 3.5** with Composition API (`<script setup>`) and generic component support
 - **Vite 8** for build tooling
 - **vue-konva** for Konva.js canvas integration
 - **TypeScript 6** with strict type checking
@@ -44,32 +44,47 @@ src/
 ├── App.vue                          # Demo app showcasing the component
 ├── main.ts                          # Entry point, registers vue-konva
 └── components/
-    └── silas-virtual-image-list/    # Main reusable component
+    └── virtual-grid-image-list/     # Main reusable component
         ├── index.ts                 # Public exports
         └── src/
-            ├── silas-virtual-image-list.vue   # Component template + logic
-            └── silas-virtual-image-list.ts    # Types and props definition
+            └── virtual-grid-image-list.vue   # Component with generic props
 ```
 
 ### Key Architectural Patterns
 
-1. **Canvas-Based Virtual Scrolling**: The `VirtualImageList` component uses Konva.js to render images to an HTML5 canvas instead of DOM elements. This enables smooth scrolling with tens of thousands of items.
+1. **Canvas-Based Virtual Scrolling**: The `VirtualGridImageList` component uses Konva.js to render images to an HTML5 canvas instead of DOM elements. This enables smooth scrolling with tens of thousands of items.
 
-2. **Image Caching**: Images are cached in a `Map<string, HTMLImageElement>` after first load. The component uses a reactive `imageLoadedCount` to trigger re-renders when images finish loading asynchronously.
+2. **Generic Component**: Uses Vue 3's generic component syntax (`<script setup lang="ts" generic="T extends Record<string, any>">`) to support custom data types. Users specify image URL and unique key via `imageKey`/`itemKey` props.
 
-3. **Overscan Rendering**: The component renders 2 extra rows above and below the visible viewport (`OVERSCAN = 2`) to prevent flickering during scroll.
+3. **Image Caching**: Images are cached in a `Map<string, HTMLImageElement>` after first load. A reactive `loadedUrls` Set triggers re-renders when images finish loading asynchronously.
 
-4. **Path Alias**: `@` is mapped to `./src/` for cleaner imports.
+4. **Overscan Rendering**: The component renders 2 extra rows above and below the visible viewport (`OVERSCAN = 2`) to prevent flickering during scroll.
 
-5. **Component Props Interface**: Props are defined in a separate `.ts` file using `PropType` and imported into the `.vue` file. This pattern separates type definitions from component logic.
+5. **Path Alias**: `@` is mapped to `./src/` for cleaner imports.
+
+### Props Interface
+
+```typescript
+interface Props<T> {
+  items: T[]                          // Data array (generic)
+  imageKey?: keyof T | ((item: T) => string)  // Image URL field, default 'url'
+  itemKey?: keyof T | ((item: T) => string)   // Unique key field, default 'id'
+  width?: number                      // Container width
+  height?: number                     // Container height
+  cellWidth?: number                  // Cell width
+  cellHeight?: number                 // Cell height
+  gap?: number                        // Cell spacing
+  hasMore?: boolean                   // Has more data to load
+}
+```
 
 ### Important Implementation Details
 
 - The component calculates visible rows based on `scrollTop` and only renders items in the viewport plus overscan
 - Wheel events on the canvas trigger scroll position updates via `onWheel`
 - The `loadMore` event fires when scrolling within 100px of the bottom (virtual infinite scroll)
-- Images are loaded asynchronously and cached; placeholder rectangles show while loading
-- Labels support optional icons loaded from SVG assets
+- Images are loaded asynchronously with batch concurrency control (max 10 per frame)
+- Placeholder rectangles show while images are loading
 
 ## Linting and Code Quality
 
